@@ -3,12 +3,13 @@
     "appVersionSource": "local"
   },
   "build": {
-    "debug-apk": {
+    "development": {
+      "node": "20.19.4",
       "android": {
         "buildType": "apk"
       },
       "distribution": "internal",
-      "developmentClient": false
+      "developmentClient": true
     }
   }
 }
