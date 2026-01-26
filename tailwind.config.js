@@ -2,6 +2,8 @@ const Colors = require("./constants/colors").default;
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  // Required for NativeWind v4
+  darkMode: "class",
   content: [
     "./App.js",
     "./components/**/*.{js,jsx,ts,tsx}",
