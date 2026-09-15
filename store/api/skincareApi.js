@@ -1,172 +1,85 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
+import { Platform } from "react-native";
 import baseQuery from "./customBaseQuery";
-
-console.log("🌐 API Base URL configured");
-
+import { SAMPLE_MODE } from "../../util/config";
+const path = (phase, name, session) =>
+  `/api/v1/skincare/phase${phase}/${name}${session ? `?session_id=${encodeURIComponent(session)}` : ""}`;
+const error = (response) => ({
+  status: response.status,
+  message: response.data?.message || "Request failed. Please try again.",
+});
 export const skincareApi = createApi({
   reducerPath: "skincareApi",
   baseQuery,
-  tagTypes: ["FormAnalysis", "ImageAnalysis", "Recommendations", "Routines"],
   endpoints: (builder) => ({
-    // Phase 1: Form Analysis (EXISTING - DON'T CHANGE)
     submitFormAnalysis: builder.mutation({
-      query: (formData) => {
-        console.log("📤 Submitting form data:", formData);
-
-        return {
-          url: "/api/v1/skincare/phase1/form-analysis",
-          method: "POST",
-          body: formData,
-        };
-      },
-      invalidatesTags: ["FormAnalysis"],
-      transformResponse: (response) => {
-        console.log("📊 Form Analysis Response:", response);
-        return response;
-      },
-      transformErrorResponse: (response) => {
-        console.error("❌ Form Analysis Error:", response);
-        return {
-          status: response.status,
-          message: response.data?.message || "Form submission failed",
-          data: response.data,
-        };
-      },
+      query: (body) => ({
+        url: path(1, "form-analysis"),
+        method: "POST",
+        body,
+      }),
+      transformErrorResponse: error,
     }),
-
-    // Phase 2: Image Analysis (EXISTING - DON'T CHANGE)
     submitImageAnalysis: builder.mutation({
-      query: ({ imageFile, sessionId }) => {
-        console.log("📸 Preparing image analysis request:", {
-          sessionId,
-          imageFile: {
-            uri: imageFile.uri,
-            type: imageFile.type,
-            name: imageFile.name,
-            size: imageFile.fileSize,
-          },
-        });
-
-        const formData = new FormData();
-
-        formData.append("file", {
-          uri: imageFile.uri,
-          type: imageFile.type || "image/jpeg",
-          name: imageFile.name || `face_image_${Date.now()}.jpg`,
-        });
-
-        console.log("📸 FormData created with file:", {
-          fileName: imageFile.name || `face_image_${Date.now()}.jpg`,
-          fileType: imageFile.type || "image/jpeg",
-          fileUri: imageFile.uri,
-        });
-
-        return {
-          url: `/api/v1/skincare/phase2/image-analysis?session_id=${encodeURIComponent(sessionId)}`,
-          method: "POST",
-          body: formData,
-        };
-      },
-      invalidatesTags: ["ImageAnalysis"],
-      transformResponse: (response) => {
-        console.log("📊 Image Analysis Response:", response);
-        return response;
-      },
-      transformErrorResponse: (response) => {
-        console.error("❌ Image Analysis Error:", response);
-        console.error("❌ Error details:", response.data?.detail);
-        return {
-          status: response.status,
-          message: response.data?.message || "Image analysis failed",
-          data: response.data,
-          details: response.data?.detail,
-        };
+      async queryFn({ imageFile, sessionId }, api, extra, request) {
+        try {
+          if (!sessionId) throw new Error("Complete your profile first.");
+          let body;
+          if (!SAMPLE_MODE) {
+            if (
+              !imageFile?.uri ||
+              !["image/jpeg", "image/png", "image/webp"].includes(
+                imageFile.type,
+              )
+            )
+              throw new Error("Choose a JPEG, PNG or WebP image.");
+            if (imageFile.fileSize > 5 * 1024 * 1024)
+              throw new Error("Choose a photo smaller than 5 MB.");
+            body = new FormData();
+            if (Platform.OS === "web") {
+              const blob = await (await fetch(imageFile.uri)).blob();
+              if (blob.size > 5 * 1024 * 1024)
+                throw new Error("Choose a photo smaller than 5 MB.");
+              body.append("file", blob, imageFile.name || "photo.jpg");
+            } else
+              body.append("file", {
+                uri: imageFile.uri,
+                type: imageFile.type,
+                name: imageFile.name || "photo.jpg",
+              });
+          }
+          const result = await request({
+            url: path(2, "image-analysis", sessionId),
+            method: "POST",
+            body,
+          });
+          return result.error ? { error: error(result.error) } : result;
+        } catch (failure) {
+          return { error: { status: "IMAGE_ERROR", message: failure.message } };
+        }
       },
     }),
-
-    // Phase 3: Product Recommendations (EXISTING - DON'T CHANGE)
     getProductRecommendations: builder.mutation({
-      query: (sessionId) => {
-        console.log(
-          "🛍️ Fetching product recommendations for session:",
-          sessionId
-        );
-
-        return {
-          url: `/api/v1/skincare/phase3/product-recommendations?session_id=${encodeURIComponent(sessionId)}`,
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        };
-      },
-      invalidatesTags: ["Recommendations"],
-      transformResponse: (response) => {
-        console.log("🛍️ Product Recommendations Response:", response);
-        return response;
-      },
-      transformErrorResponse: (response) => {
-        console.error("❌ Product Recommendations Error:", response);
-        return {
-          status: response.status,
-          message: response.data?.message || "Failed to get recommendations",
-          data: response.data,
-          details: response.data?.detail,
-        };
-      },
+      query: (id) => ({
+        url: path(3, "product-recommendations", id),
+        method: "POST",
+      }),
+      transformErrorResponse: error,
     }),
-
     getRecommendationsQuery: builder.query({
-      query: (sessionId) =>
-        `/api/v1/skincare/phase3/product-recommendations?session_id=${encodeURIComponent(sessionId)}`,
-      providesTags: ["Recommendations"],
-      transformResponse: (response) => {
-        console.log("🛍️ Product Recommendations Query Response:", response);
-        return response;
-      },
+      query: (id) => path(3, "product-recommendations", id),
+      transformErrorResponse: error,
     }),
-
-    // Phase 4: Routine Creation (NEW)
     getRoutineCreation: builder.mutation({
-      query: (sessionId) => {
-        console.log("🗓️ Fetching skincare routine for session:", sessionId);
-
-        return {
-          url: `/api/v1/skincare/phase4/routine-creation?session_id=${encodeURIComponent(sessionId)}`,
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        };
-      },
-      invalidatesTags: ["Routines"],
-      transformResponse: (response) => {
-        console.log("🗓️ Routine Creation Response:", response);
-        return response;
-      },
-      transformErrorResponse: (response) => {
-        console.error("❌ Routine Creation Error:", response);
-        return {
-          status: response.status,
-          message: response.data?.message || "Failed to create routine",
-          data: response.data,
-          details: response.data?.detail,
-        };
-      },
+      query: (id) => ({ url: path(4, "routine-creation", id), method: "POST" }),
+      transformErrorResponse: error,
     }),
-
     getRoutineQuery: builder.query({
-      query: (sessionId) =>
-        `/api/v1/skincare/phase4/routine-creation?session_id=${encodeURIComponent(sessionId)}`,
-      providesTags: ["Routines"],
-      transformResponse: (response) => {
-        console.log("🗓️ Routine Query Response:", response);
-        return response;
-      },
+      query: (id) => path(4, "routine-creation", id),
+      transformErrorResponse: error,
     }),
   }),
 });
-
 export const {
   useSubmitFormAnalysisMutation,
   useSubmitImageAnalysisMutation,

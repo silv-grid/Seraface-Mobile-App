@@ -11,8 +11,8 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 // Redux setup
 import { Provider } from "react-redux";
-import { PersistGate } from "redux-persist/integration/react";
-import { store, persistor } from "./store";
+import StorageGate from "./store/StorageGate";
+import { store } from "./store";
 
 import HomeScreen from "./screens/Major_Screens/HomeScreen";
 import ProductsScreen from "./screens/Major_Screens/ProductsScreen";
@@ -25,8 +25,6 @@ import ResultScreen from "./screens/Minor_Screens/Home/ResultScreen";
 import ProductScreen from "./screens/Minor_Screens/Products/ProductScreen";
 import Colors from "./constants/colors";
 import TabBarLabel from "./components/UI_Common/Commons/TabBarLabel";
-import CommunityScreen from "./screens/Major_Screens/CommunityScreen";
-import ChatFAB from "./components/UI_Common/Commons/ChatFAB";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -44,14 +42,21 @@ function HomeStackNavigator() {
     <Stack.Navigator
       screenOptions={({ navigation, route }) => ({
         headerShown: true,
-        animation: "slide_from_right",
+        animation: "none",
         headerLeft: () => null,
         headerRight: () => {
           if (route.name === "Result" || route.name === "MainHome") return null;
           return navigation.canGoBack() ? (
             <Pressable
               onPress={() => navigation.goBack()}
-              style={{ marginRight: 15 }}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+              style={{
+                minWidth: 48,
+                minHeight: 48,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
               android_ripple={{
                 color: Colors.primary200,
                 borderless: true,
@@ -110,14 +115,21 @@ function ProductsStackNavigator() {
     <Stack.Navigator
       screenOptions={({ navigation, route }) => ({
         headerShown: true,
-        animation: "slide_from_right",
+        animation: "none",
         headerLeft: () => null,
         headerRight: () => {
           if (route.name === "Result" || route.name === "MainHome") return null;
           return navigation.canGoBack() ? (
             <Pressable
               onPress={() => navigation.goBack()}
-              style={{ marginRight: 15 }}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+              style={{
+                minWidth: 48,
+                minHeight: 48,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
               android_ripple={{
                 color: Colors.primary200,
                 borderless: true,
@@ -169,15 +181,6 @@ function AppNavigator() {
             backgroundColor: Colors.background,
             height: 85,
           },
-          tabBarButton: (props) => (
-            <Pressable
-              {...props}
-              android_ripple={{
-                color: Colors.primary200,
-                borderless: true,
-              }}
-            />
-          ),
           headerTitleContainerStyle: {
             flex: 1,
             margin: 0,
@@ -245,14 +248,14 @@ function AppNavigator() {
 export default function App() {
   return (
     <Provider store={store}>
-      <PersistGate loading={null} persistor={persistor}>
+      <StorageGate>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <SafeAreaProvider>
             <StatusBar style="dark" />
             <AppNavigator />
           </SafeAreaProvider>
         </GestureHandlerRootView>
-      </PersistGate>
+      </StorageGate>
     </Provider>
   );
 }

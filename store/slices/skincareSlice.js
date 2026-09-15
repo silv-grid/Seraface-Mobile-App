@@ -15,6 +15,8 @@ const initialState = {
 
   // Image data (EXISTING - DON'T CHANGE)
   imageData: null,
+  selectedProducts: [],
+  completedSteps: {},
 
   // Analysis results (EXISTING - DON'T CHANGE)
   analysisResults: null,
@@ -61,7 +63,21 @@ const skincareSlice = createSlice({
   name: "skincare",
   initialState,
   reducers: {
-    // Existing reducers (DO NOT CHANGE)
+    toggleProduct: (state, action) => {
+      const id = action.payload;
+      state.selectedProducts = state.selectedProducts.includes(id)
+        ? state.selectedProducts.filter((item) => item !== id)
+        : [...state.selectedProducts, id];
+    },
+    toggleStep: (state, action) => {
+      const { day, id } = action.payload;
+      const steps = state.completedSteps[day] || [];
+      state.completedSteps = {
+        [day]: steps.includes(id)
+          ? steps.filter((item) => item !== id)
+          : [...steps, id],
+      };
+    },
     updateFormData: (state, action) => {
       state.formData = { ...state.formData, ...action.payload };
     },
@@ -78,7 +94,7 @@ const skincareSlice = createSlice({
 
     removeSkinCondition: (state, action) => {
       state.formData.skin_conditions = state.formData.skin_conditions.filter(
-        (condition) => condition !== action.payload
+        (condition) => condition !== action.payload,
       );
     },
 
@@ -90,7 +106,7 @@ const skincareSlice = createSlice({
 
     removeAllergy: (state, action) => {
       state.formData.allergies = state.formData.allergies.filter(
-        (allergy) => allergy !== action.payload
+        (allergy) => allergy !== action.payload,
       );
     },
 
@@ -102,12 +118,19 @@ const skincareSlice = createSlice({
 
     removeGoal: (state, action) => {
       state.formData.goals = state.formData.goals.filter(
-        (goal) => goal !== action.payload
+        (goal) => goal !== action.payload,
       );
     },
 
     addProductExperience: (state, action) => {
-      if (!state.formData.product_experiences.includes(action.payload)) {
+      if (
+        !state.formData.product_experiences.some(
+          (item) =>
+            item.product === action.payload.product &&
+            item.experience === action.payload.experience &&
+            item.reason === action.payload.reason,
+        )
+      ) {
         state.formData.product_experiences.push(action.payload);
       }
     },
@@ -115,7 +138,7 @@ const skincareSlice = createSlice({
     removeProductExperience: (state, action) => {
       state.formData.product_experiences =
         state.formData.product_experiences.filter(
-          (experience) => experience !== action.payload
+          (_, index) => index !== action.payload,
         );
     },
 
@@ -213,7 +236,7 @@ const skincareSlice = createSlice({
     },
 
     // General actions (EXISTING - DON'T CHANGE)
-    clearAllData: (state) => {
+    clearAllData: () => {
       return initialState;
     },
 
@@ -238,15 +261,18 @@ const skincareSlice = createSlice({
     // Handle form analysis results (EXISTING - DON'T CHANGE)
     builder.addMatcher(
       skincareApi.endpoints.submitFormAnalysis.matchFulfilled,
-      (state, action) => {
+      (state) => {
+        state.recommendations = initialState.recommendations;
+        state.routines = initialState.routines;
+        state.selectedProducts = [];
+        state.completedSteps = {};
+        state.analysisResults = null;
+        state.imageData = null;
+        state.isImageSubmitted = false;
         state.isFormSubmitted = true;
         state.lastSubmissionTime = Date.now();
         state.errors.form = null;
-
-        if (action.payload.data) {
-          state.formData = { ...state.formData, ...action.payload.data };
-        }
-      }
+      },
     );
 
     builder.addMatcher(
@@ -254,7 +280,7 @@ const skincareSlice = createSlice({
       (state, action) => {
         state.errors.form = action.payload?.message || "Form submission failed";
         state.isFormSubmitted = false;
-      }
+      },
     );
 
     // Handle image analysis results (EXISTING - DON'T CHANGE)
@@ -265,7 +291,7 @@ const skincareSlice = createSlice({
         state.lastImageSubmissionTime = Date.now();
         state.errors.image = null;
         state.analysisResults = action.payload;
-      }
+      },
     );
 
     builder.addMatcher(
@@ -273,7 +299,7 @@ const skincareSlice = createSlice({
       (state, action) => {
         state.errors.image = action.payload?.message || "Image analysis failed";
         state.isImageSubmitted = false;
-      }
+      },
     );
 
     // UPDATED: Handle product recommendations - Limit to latest only
@@ -283,7 +309,7 @@ const skincareSlice = createSlice({
         state.recommendations.isLoading = true;
         state.recommendations.error = null;
         state.recommendations.isFresh = false;
-      }
+      },
     );
 
     builder.addMatcher(
@@ -296,61 +322,12 @@ const skincareSlice = createSlice({
 
         const payload = action.payload;
 
-        // UPDATED: Process products to keep only the latest/top recommendation per category
-        const limitedProducts = {};
-        if (payload.products) {
-          Object.entries(payload.products).forEach(([category, products]) => {
-            if (Array.isArray(products) && products.length > 0) {
-              // Only keep the first (latest/most relevant) product for each category
-              limitedProducts[category] = [products[0]];
-              console.log(
-                `📊 Limited ${category} products to 1 (was ${products.length})`
-              );
-            }
-          });
-        }
-
-        // Safely assign limited products
-        state.recommendations.products = JSON.parse(
-          JSON.stringify(limitedProducts)
-        );
-
-        // Safely assign allocation (ensure it's a plain object)
-        state.recommendations.allocation = payload.allocation
-          ? JSON.parse(JSON.stringify(payload.allocation))
-          : {};
-
-        // Assign primitive values directly
-        state.recommendations.total_budget = payload.total_budget || null;
-
-        // UPDATED: Limit future recommendations to maximum 3 items
-        let limitedFutureRecommendations = [];
-        if (
-          payload.future_recommendations &&
-          Array.isArray(payload.future_recommendations)
-        ) {
-          limitedFutureRecommendations = payload.future_recommendations.slice(
-            0,
-            3
-          );
-          console.log(
-            `📊 Limited future recommendations to ${limitedFutureRecommendations.length} (was ${payload.future_recommendations.length})`
-          );
-        }
-
-        state.recommendations.future_recommendations = JSON.parse(
-          JSON.stringify(limitedFutureRecommendations)
-        );
-
-        console.log("✅ Recommendations processed with limits:", {
-          categories: Object.keys(limitedProducts).length,
-          totalProducts: Object.values(limitedProducts).reduce(
-            (sum, products) => sum + products.length,
-            0
-          ),
-          futureRecommendations: limitedFutureRecommendations.length,
-        });
-      }
+        state.recommendations.products = payload.products || {};
+        state.recommendations.allocation = payload.allocation || {};
+        state.recommendations.total_budget = payload.total_budget ?? null;
+        state.recommendations.future_recommendations =
+          payload.future_recommendations || [];
+      },
     );
 
     builder.addMatcher(
@@ -360,7 +337,7 @@ const skincareSlice = createSlice({
         state.recommendations.error =
           action.payload?.message || "Failed to get recommendations";
         state.recommendations.isFresh = false;
-      }
+      },
     );
 
     // Handle routine creation (EXISTING)
@@ -372,7 +349,7 @@ const skincareSlice = createSlice({
         }
         state.routines.isLoading = true;
         state.routines.error = null;
-      }
+      },
     );
 
     builder.addMatcher(
@@ -392,7 +369,7 @@ const skincareSlice = createSlice({
         state.routines.routine = payload.routine
           ? JSON.parse(JSON.stringify(payload.routine))
           : [];
-      }
+      },
     );
 
     builder.addMatcher(
@@ -405,12 +382,14 @@ const skincareSlice = createSlice({
         state.routines.isLoading = false;
         state.routines.error =
           action.payload?.message || "Failed to create routine";
-      }
+      },
     );
   },
 });
 
 export const {
+  toggleProduct,
+  toggleStep,
   updateFormData,
   setSkinType,
   addSkinCondition,

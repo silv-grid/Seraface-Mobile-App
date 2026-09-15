@@ -1,79 +1,43 @@
 import { fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-
-// Dynamic base URL based on environment
-const getBaseUrl = () => {
-  if (__DEV__) {
-    return "http://192.168.1.5:8000";
-  } else {
-    return "https://your-production-api.com";
-  }
-};
-
-const baseQuery = fetchBaseQuery({
-  baseUrl: getBaseUrl(),
-  prepareHeaders: (headers, { getState, endpoint }) => {
-    // Add session ID if available
-    const sessionId = getState().auth.sessionId;
-    if (sessionId) {
-      headers.set("X-Session-ID", sessionId);
-    }
-
-    // IMPORTANT: Never set Content-Type for FormData requests
-    // The browser will automatically set it with the correct boundary
-    if (endpoint !== "submitImageAnalysis") {
-      headers.set("Content-Type", "application/json");
-    }
-
-    console.log(
-      "🌐 Request headers for endpoint",
-      endpoint,
-      ":",
-      Object.fromEntries(headers.entries())
-    );
-
+import { API_URL, SAMPLE_MODE, configurationError } from "../../util/config";
+import { sampleResponse } from "../../util/sample.mjs";
+import { validateResponse, validateProfile } from "../../util/model.mjs";
+const request = fetchBaseQuery({
+  baseUrl: API_URL,
+  timeout: 30000,
+  prepareHeaders(headers, { getState }) {
+    const session = getState().auth.sessionId;
+    if (session) headers.set("X-Session-ID", session);
     return headers;
   },
 });
-
-// Custom wrapper to handle logging and debugging
-const customBaseQuery = async (args, api, extraOptions) => {
-  console.log("🌐 Making request:", {
-    url: args.url,
-    method: args.method,
-    endpoint: api.endpoint,
-    bodyType: args.body?.constructor?.name,
-    hasFormData: args.body instanceof FormData,
-  });
-
-  // Log FormData contents for debugging
-  if (args.body instanceof FormData) {
-    console.log("📦 FormData contents:");
-    for (let [key, value] of args.body.entries()) {
-      if (typeof value === "object" && value.uri) {
-        console.log(`  ${key}:`, {
-          uri: value.uri,
-          type: value.type,
-          name: value.name,
-        });
-      } else {
-        console.log(`  ${key}:`, value);
-      }
-    }
+export default async function customBaseQuery(args, api, extraOptions) {
+  const invalid =
+    configurationError() ||
+    (api.endpoint === "submitFormAnalysis" && validateProfile(args.body));
+  if (invalid)
+    return {
+      error: { status: "VALIDATION_ERROR", data: { message: invalid } },
+    };
+  if (SAMPLE_MODE) return { data: sampleResponse(api.endpoint) };
+  const result = await request(args, api, extraOptions);
+  if (result.error)
+    return {
+      error: {
+        status: result.error.status,
+        data: {
+          message:
+            result.error.status === "TIMEOUT_ERROR"
+              ? "The service timed out. Your draft is still here; try again."
+              : "The service could not complete this request. Check its connection and try again.",
+        },
+      },
+    };
+  try {
+    return { data: validateResponse(api.endpoint, result.data) };
+  } catch (error) {
+    return {
+      error: { status: "INVALID_RESPONSE", data: { message: error.message } },
+    };
   }
-
-  const result = await baseQuery(args, api, extraOptions);
-
-  if (result.error) {
-    console.error("❌ Request failed:", {
-      status: result.error.status,
-      data: result.error.data,
-      originalStatus: result.error.originalStatus,
-    });
-  } else {
-    console.log("✅ Request successful:", result.data?.status || "OK");
-  }
-
-  return result;
-};
-
-export default customBaseQuery;
+}
