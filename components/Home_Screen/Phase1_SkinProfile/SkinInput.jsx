@@ -7,7 +7,7 @@ import {
 } from "react-native";
 import React, { useState, useRef } from "react";
 import SkinInputList from "./SkinInputList";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { GradientView } from "../../../components/UI_Common/Gradients/GradientView";
 import Colors from "../../../constants/colors";
 
@@ -22,7 +22,7 @@ export default function SkinInput({
   const inputRef = useRef(null);
 
   const handleAddItem = () => {
-    if (inputValue.trim() !== "") {
+    if (inputValue.trim() !== "" && items.length < 20) {
       // Call the parent's add function
       onAddItem(inputValue.trim());
       // Clear input value immediately
@@ -41,6 +41,8 @@ export default function SkinInput({
       <Text className="text-[#444] font-medium mb-2">{title}</Text>
       <View className="flex-row items-center">
         <TextInput
+          accessibilityLabel={title}
+          maxLength={120}
           ref={inputRef}
           className="flex-1 border border-gray-200 bg-white rounded-xl py-3 px-4 mr-2"
           placeholder={placeholder}
@@ -50,9 +52,15 @@ export default function SkinInput({
           blurOnSubmit={false}
         />
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={`Add ${title}`}
+          accessibilityState={{
+            disabled: !inputValue.trim() || items.length >= 20,
+          }}
+          disabled={!inputValue.trim() || items.length >= 20}
           activeOpacity={0.7}
           onPress={handleAddItem}
-          className="overflow-hidden rounded-xl h-[46px] w-[46px]"
+          className="overflow-hidden rounded-xl h-[48px] w-[48px]"
         >
           <GradientView
             preset="purpleToPink3"

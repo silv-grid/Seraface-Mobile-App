@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity } from "react-native";
 import { GradientView } from "../../UI_Common/Gradients/GradientView";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import Colors from "../../../constants/colors";
 
 export default function ProductExperienceInput({ onAddExperience }) {
@@ -27,6 +27,8 @@ export default function ProductExperienceInput({ onAddExperience }) {
     <View className="bg-white rounded-xl p-4 border border-gray-200">
       <TextInput
         className="border border-gray-200 bg-white rounded-xl py-2 px-3 mb-3"
+        accessibilityLabel="Product name"
+        maxLength={120}
         placeholder="Product name"
         value={product}
         onChangeText={setProduct}
@@ -34,6 +36,8 @@ export default function ProductExperienceInput({ onAddExperience }) {
 
       <View className="flex-row justify-between mb-3">
         <TouchableOpacity
+          accessibilityRole="button"
+          style={{ minHeight: 48, justifyContent: "center" }}
           onPress={() => setExperience("good")}
           className={`flex-1 mr-2 py-2 rounded-xl items-center ${
             experience === "good"
@@ -51,6 +55,8 @@ export default function ProductExperienceInput({ onAddExperience }) {
         </TouchableOpacity>
 
         <TouchableOpacity
+          accessibilityRole="button"
+          style={{ minHeight: 48, justifyContent: "center" }}
           onPress={() => setExperience("neutral")}
           className={`flex-1 mx-1 py-2 rounded-xl items-center ${
             experience === "neutral"
@@ -68,6 +74,8 @@ export default function ProductExperienceInput({ onAddExperience }) {
         </TouchableOpacity>
 
         <TouchableOpacity
+          accessibilityRole="button"
+          style={{ minHeight: 48, justifyContent: "center" }}
           onPress={() => setExperience("bad")}
           className={`flex-1 ml-2 py-2 rounded-xl items-center ${
             experience === "bad"
@@ -87,6 +95,8 @@ export default function ProductExperienceInput({ onAddExperience }) {
 
       <TextInput
         className="border border-gray-200 bg-white rounded-xl py-2 px-3 mb-3"
+        accessibilityLabel="Experience notes"
+        maxLength={500}
         placeholder="Reason for your experience (optional)"
         value={reason}
         onChangeText={setReason}
@@ -95,9 +105,13 @@ export default function ProductExperienceInput({ onAddExperience }) {
       />
 
       <TouchableOpacity
+        accessibilityRole="button"
+        style={{ minHeight: 48, justifyContent: "center" }}
+        accessibilityLabel="Add Experience"
+        accessibilityState={{ disabled: !product.trim() }}
         onPress={handleAddExperience}
         disabled={!product.trim()}
-        className="overflow-hidden rounded-xl h-[46px]"
+        className="overflow-hidden rounded-xl h-[48px]"
       >
         <GradientView
           preset="purpleToPink3"

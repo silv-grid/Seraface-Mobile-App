@@ -37,3 +37,9 @@ yarn-error.*
 *.tsbuildinfo
 /android
 /ios
+
+/native-export
+.env.local
+
+/api-web/
+/docs/images/check-failure.png

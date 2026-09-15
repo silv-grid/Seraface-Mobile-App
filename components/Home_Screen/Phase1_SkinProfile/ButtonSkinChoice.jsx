@@ -14,6 +14,10 @@ export default function ButtonSkinChoice({
       {isSelected ? (
         <GradientView preset="purpleToPink3" className="rounded-xl">
           <Pressable
+            accessibilityRole="radio"
+            accessibilityLabel={text}
+            accessibilityState={{ checked: isSelected }}
+            style={{ minHeight: 48, justifyContent: "center" }}
             onPress={() => onSelectedValue(value)}
             android_ripple={{ color: Colors.primary400 }}
             className="py-3 px-4 items-center"
@@ -23,6 +27,10 @@ export default function ButtonSkinChoice({
         </GradientView>
       ) : (
         <Pressable
+          accessibilityRole="radio"
+          accessibilityLabel={text}
+          accessibilityState={{ checked: isSelected }}
+          style={{ minHeight: 48, justifyContent: "center" }}
           onPress={() => onSelectedValue(value)}
           android_ripple={{ color: Colors.primary100 }}
           className="py-3 px-4 bg-white border border-gray-200 rounded-xl items-center"

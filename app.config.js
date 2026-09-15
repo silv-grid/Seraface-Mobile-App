@@ -3,15 +3,9 @@ export default {
     name: "SerafaceMobile",
     slug: "SerafaceMobile",
     version: "1.0.0",
-    orientation: "portrait",
+    orientation: "default",
     icon: "./assets/icon.png",
-    userInterfaceStyle: "automatic",
-    newArchEnabled: true,
-    splash: {
-      image: "./assets/splash-icon.png",
-      resizeMode: "contain",
-      backgroundColor: "#f5d0f1",
-    },
+    userInterfaceStyle: "light",
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.agersando.SerafaceMobile",
@@ -21,7 +15,6 @@ export default {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#f5d0f1",
       },
-      edgeToEdgeEnabled: true,
       package: "com.agersando.SerafaceMobile",
     },
     web: {
@@ -29,7 +22,26 @@ export default {
       bundler: "metro",
       output: "single",
     },
-    plugins: ["expo-font"],
+    plugins: [
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          image: "./assets/splash-icon.png",
+          imageWidth: 180,
+          backgroundColor: "#f5d0f1",
+        },
+      ],
+      [
+        "expo-image-picker",
+        {
+          photosPermission:
+            "Choose a photo to send to your configured skin analysis service.",
+          cameraPermission: false,
+          microphonePermission: false,
+        },
+      ],
+    ],
     extra: {
       eas: {
         projectId: "0ad10560-7096-478b-b186-536c54b4f8b8",

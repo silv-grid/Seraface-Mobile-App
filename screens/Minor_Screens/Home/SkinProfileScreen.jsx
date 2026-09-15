@@ -1,6 +1,9 @@
-import { ScrollView, View, Text, TextInput, Alert } from "react-native";
-import React, { useEffect } from "react";
+import { ScrollView, View, Text, TextInput, Pressable } from "react-native";
+import { useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
+import { validateProfile } from "../../../util/model.mjs";
+import { SAMPLE_MODE } from "../../../util/config";
+import { Notice } from "../../../components/Workspace";
 import TitleContainer from "../../../components/UI_Common/Commons/TitleContainer";
 import SkinTypeList from "../../../components/Home_Screen/Phase1_SkinProfile/SkinTypeList";
 import NextButton from "../../../components/UI_Common/Buttons/NextButton";
@@ -38,13 +41,11 @@ const SkinProfileScreen = ({ navigation }) => {
   // Redux state
   const formData = useSelector((state) => state.skincare.formData);
   const formError = useSelector((state) => state.skincare.errors.form);
-  const sessionId = useSelector((state) => state.auth.sessionId);
+  const [validationError, setValidationError] = useState(null);
 
   // RTK Query mutation
-  const [
-    submitFormAnalysis,
-    { isLoading, error: mutationError, isSuccess, data: responseData },
-  ] = useSubmitFormAnalysisMutation();
+  const [submitFormAnalysis, { isLoading, error: mutationError }] =
+    useSubmitFormAnalysisMutation();
 
   // Destructure form data for easier access
   const {
@@ -56,33 +57,6 @@ const SkinProfileScreen = ({ navigation }) => {
     goals,
     custom_goal,
   } = formData;
-
-  // Handle form submission success
-  useEffect(() => {
-    if (isSuccess && responseData) {
-      console.log("✅ Form submission successful:", responseData);
-
-      // Store session ID and update phase
-      dispatch(setSessionId(responseData.session_id));
-      dispatch(setFormIndex(responseData.form_index));
-      dispatch(setCurrentPhase("scan"));
-
-      // Navigate to next screen
-      navigation.navigate("ScanFace");
-    }
-  }, [isSuccess, responseData, dispatch, navigation]);
-
-  // Handle errors
-  useEffect(() => {
-    if (mutationError) {
-      console.error("❌ Form submission error:", mutationError);
-      Alert.alert(
-        "Submission Error",
-        mutationError.message || "Failed to submit form. Please try again.",
-        [{ text: "OK", onPress: () => dispatch(clearError("form")) }]
-      );
-    }
-  }, [mutationError, dispatch]);
 
   // Event handlers
   const handleSkinTypeChange = (type) => {
@@ -138,45 +112,14 @@ const SkinProfileScreen = ({ navigation }) => {
     dispatch(setCustomGoal(goal));
   };
 
-  // Form validation
-  const validateForm = () => {
-    if (skin_type.length === 0) {
-      Alert.alert("Validation Error", "Please select your skin type.");
-      return false;
-    }
-
-    if (!budget || budget.trim() === "") {
-      Alert.alert("Validation Error", "Please enter your budget.");
-      return false;
-    }
-
-    if (skin_conditions.length === 0) {
-      Alert.alert(
-        "Validation Error",
-        "Please add at least one skin condition."
-      );
-      return false;
-    }
-
-    if (goals.length === 0 && (!custom_goal || custom_goal.trim() === "")) {
-      Alert.alert(
-        "Validation Error",
-        "Please add at least one goal or custom goal."
-      );
-      return false;
-    }
-
-    return true;
-  };
-
   const handleSubmit = async () => {
     // Clear any previous errors
     dispatch(clearError("form"));
 
     // Validate form
-    if (!validateForm()) {
-      return;
-    }
+    const invalid = validateProfile(formData);
+    setValidationError(invalid);
+    if (invalid) return;
 
     // Prepare data for submission
     const submissionData = {
@@ -189,13 +132,14 @@ const SkinProfileScreen = ({ navigation }) => {
       custom_goal,
     };
 
-    console.log("📤 Submitting form data:", submissionData);
-
     try {
-      await submitFormAnalysis(submissionData).unwrap();
-    } catch (error) {
-      console.error("❌ Submission failed:", error);
-      // Error handling is done in useEffect above
+      const response = await submitFormAnalysis(submissionData).unwrap();
+      dispatch(setSessionId(response.session_id));
+      dispatch(setFormIndex(response.form_index ?? null));
+      dispatch(setCurrentPhase("scan"));
+      navigation.navigate("ScanFace");
+    } catch {
+      /* The mutation error is rendered below; keep the draft. */
     }
   };
 
@@ -203,11 +147,19 @@ const SkinProfileScreen = ({ navigation }) => {
     <ScrollView
       className="flex-1"
       contentContainerStyle={{
-        paddingBottom: Math.max(insets.bottom + 100, 120),
+        width: "100%",
+        maxWidth: 760,
+        alignSelf: "center",
+        paddingBottom: Math.max(insets.bottom + 40, 60),
       }}
     >
       <View className="px-8 py-6">
         <TitleContainer title={"Tell us about your skin"} />
+        <Notice>
+          {SAMPLE_MODE
+            ? "Sample mode: your profile stays on this device. Submitting starts a new sample plan."
+            : "Submitting sends this profile to your configured service and starts a new plan."}
+        </Notice>
 
         <SkinTypeList
           selectedSkinType={skin_type[0] || ""} // Pass first item or empty string
@@ -220,7 +172,7 @@ const SkinProfileScreen = ({ navigation }) => {
             What's your budget (₱)?
           </Text>
           <View className="bg-white rounded-xl p-4 border border-gray-200">
-            <View className="flex-row justify-between items-center">
+            <View className="gap-3">
               <Text className="text-textSecondary">
                 Monthly skincare budget
               </Text>
@@ -228,7 +180,10 @@ const SkinProfileScreen = ({ navigation }) => {
                 <Text className="font-bold text-success-500 mr-1">₱</Text>
                 <TextInput
                   className="border border-gray-200 bg-white rounded-lg py-1 px-3 min-w-[80px] text-right font-bold text-success-500"
-                  keyboardType="numeric"
+                  accessibilityLabel="Budget in PHP"
+                  maxLength={9}
+                  style={{ minHeight: 48 }}
+                  keyboardType="decimal-pad"
                   value={budget}
                   onChangeText={handleBudgetChange}
                   placeholder="800"
@@ -271,6 +226,8 @@ const SkinProfileScreen = ({ navigation }) => {
             placeholder="Describe your main skincare goal"
             value={custom_goal}
             onChangeText={handleCustomGoalChange}
+            accessibilityLabel="Custom goal"
+            maxLength={500}
             multiline
           />
         </View>
@@ -305,12 +262,14 @@ const SkinProfileScreen = ({ navigation }) => {
                   {experience.reason}
                 </Text>
               )}
-              <Text
-                className="text-primary-600 mt-2 text-right"
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Remove experience ${experience.product}`}
+                style={{ minHeight: 48, justifyContent: "center" }}
                 onPress={() => handleRemoveProductExperience(index)}
               >
-                Remove
-              </Text>
+                <Text style={{ color: "#7423c7" }}>Remove</Text>
+              </Pressable>
             </View>
           ))}
 
@@ -319,6 +278,7 @@ const SkinProfileScreen = ({ navigation }) => {
           />
         </View>
 
+        <Notice error>{validationError}</Notice>
         {/* Error Display */}
         {(formError || mutationError) && (
           <View className="bg-error-100 border border-error-300 rounded-xl p-4 mb-4">
@@ -331,21 +291,18 @@ const SkinProfileScreen = ({ navigation }) => {
         {/* Submit Button */}
         <View className="mb-5">
           <NextButton
-            text={isLoading ? "Submitting..." : "Next: Face Scan"}
+            text={
+              isLoading
+                ? "Submitting..."
+                : SAMPLE_MODE
+                  ? "Continue sample walkthrough"
+                  : "Next: Choose photo"
+            }
             icon={isLoading ? "hourglass-outline" : "arrow-forward-outline"}
             onPress={handleSubmit}
             disabled={isLoading}
           />
         </View>
-
-        {/* Debug Info (remove in production) */}
-        {/* {__DEV__ && sessionId && (
-          <View className="mt-4 p-4 bg-gray-100 rounded-xl">
-            <Text className="text-sm text-gray-600">
-              Debug - Session ID: {sessionId}
-            </Text>
-          </View>
-        )} */}
       </View>
     </ScrollView>
   );

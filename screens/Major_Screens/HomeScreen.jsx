@@ -1,111 +1,85 @@
-import { View, Text, FlatList } from "react-native";
-import { Glasses, Sparkle, Sparkles } from "lucide-react-native";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-  Easing,
-} from "react-native-reanimated";
-
-import Colors from "../../constants/colors";
-import NextButton from "../../components/UI_Common/Buttons/NextButton";
-import InfoContainer from "../../components/Home_Screen/Main_Home/InfoContainer";
-import { GradientText } from "../../components/UI_Common/Gradients/GradientText";
+import { useState } from "react";
+import { View, Text } from "react-native";
+import { Sparkles } from "lucide-react-native";
 import { GradientView } from "../../components/UI_Common/Gradients/GradientView";
-import { useEffect } from "react";
-
-const infoData = [
-  {
-    id: 1,
-    icon: "clipboard-outline",
-    title: "Personalized Recommendations",
-    description:
-      "Get product reccomendations based on your unique skin profile",
-  },
-  {
-    id: 2,
-    icon: "camera-outline",
-    title: "AI Skin Analysis",
-    description: "Upload a selfie for advanced skin condition analysis",
-  },
-  {
-    id: 3,
-    icon: "color-wand-outline",
-    title: "Custom Routines",
-    description: "Build the perfect skincare routine for your needs",
-  },
-];
-
+import { Page, Action, Notice, styles } from "../../components/Workspace";
+import { SAMPLE_MODE, API_URL } from "../../util/config";
+import { clearSavedState } from "../../store";
 export default function HomeScreen({ navigation }) {
-  const rotation = useSharedValue(0);
-
-  useEffect(() => {
-    rotation.value = withRepeat(
-      withTiming(360, {
-        duration: 10000,
-        easing: Easing.linear,
-      }),
-      -1,
-      false
-    );
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ rotate: `${rotation.value}deg` }],
-    };
-  });
-
-  const handleNextButtonPressed = () => {
-    navigation.navigate("SkinProfile");
-  };
-
+  const [confirm, setConfirm] = useState(false);
   return (
-    <View className="flex-col px-8 py-6">
-      <View className="items-center justify-center w-full my-3">
-        <Animated.View
-          className="rounded-full overflow-hidden"
-          style={[{ width: 100, height: 100 }, animatedStyle]}
-        >
-          <GradientView
-            className="items-center justify-center w-full h-full"
-            preset="logoGradient"
-          >
-            <Sparkles size={48} color={Colors.background} />
-          </GradientView>
-        </Animated.View>
-      </View>
-
-      <View className="items-center gap-2 my-3">
-        <GradientText
-          text={"Seraface AI"}
-          preset={"purpleToPink"}
-          centerText={true}
-          style={{ fontSize: 30 }}
-        />
-        <Text className="text-center text-textSecondary text-lg">
-          Your AI-powered skincare companion
+    <Page
+      title="Your skincare workspace"
+      description="Keep your profile, product shortlist and routine together."
+    >
+      <GradientView
+        preset="logoGradient"
+        style={{
+          width: 80,
+          height: 80,
+          borderRadius: 24,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Sparkles color="white" size={40} />
+      </GradientView>
+      <Notice>
+        {SAMPLE_MODE
+          ? "Try the client with fictional products and routine entries. No photo is needed, no AI runs, and nothing is sent to a server."
+          : `Profile submissions and selected photos go to ${API_URL}. Service output is shown as received; this client does not verify clinical claims.`}
+      </Notice>
+      <View style={styles.row}>
+        <Text style={styles.heading}>01 / Describe your preferences</Text>
+        <Text style={styles.body}>
+          Choose a skin type, a budget in PHP and the goals you want to keep
+          track of.
         </Text>
       </View>
-
-      <FlatList
-        className="my-3"
-        data={infoData}
-        renderItem={({ item }) => (
-          <InfoContainer
-            key={item.id}
-            icon={item.icon}
-            title={item.title}
-            description={item.description}
-          />
-        )}
-      />
-      <NextButton
-        text={"Get Started"}
-        icon={"arrow-forward-outline"}
-        onPress={handleNextButtonPressed}
-      />
-    </View>
+      <View style={styles.row}>
+        <Text style={styles.heading}>02 / Review products</Text>
+        <Text style={styles.body}>
+          Select items for a local purchase plan and see the total against your
+          budget.
+        </Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.heading}>03 / Track your routine</Text>
+        <Text style={styles.body}>
+          Review the available steps and mark today's entries complete.
+        </Text>
+      </View>
+      <Action onPress={() => navigation.navigate("SkinProfile")}>
+        Open skin profile
+      </Action>
+      <Text style={styles.body}>
+        Your draft, results and plan are stored on this device, without
+        encryption. Photos are kept only in memory. There is no account sync or
+        checkout.
+      </Text>
+      {confirm ? (
+        <>
+          <Notice>
+            Clear your profile, saved results, plan and checklist on this
+            device? This cannot be undone.
+          </Notice>
+          <Action
+            onPress={async () => {
+              await clearSavedState();
+              setConfirm(false);
+            }}
+          >
+            Confirm clear local data
+          </Action>
+          <Action secondary onPress={() => setConfirm(false)}>
+            Keep my data
+          </Action>
+        </>
+      ) : (
+        <Action secondary onPress={() => setConfirm(true)}>
+          Clear local data
+        </Action>
+      )}
+    </Page>
   );
 }
